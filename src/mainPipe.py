@@ -12,11 +12,15 @@ from datetime import datetime
 import os
 import re
 import shutil
+import pymysql
+import csv
+
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 
 preProcessedPath = 'F:\\Xu\\uav_preprocessed'
 processingPath = 'F:\\Xu\\uav_processing'
+manifest = 'manifest.txt'
 
 def getQueueStatus():
 # Read the processing queue file
@@ -49,26 +53,29 @@ def getFlightFolderStatus():
     flightFolder = next(os.walk(preProcessedPath))[1]
     if len(flightFolder)>0:
         # Check the completeness of the folder
-        # Get the total Tif number from the manifest file
-        manifestFile = open(preProcessedPath+'\\'+flightFolder[0]+'\\manifest.txt',"r") # Check the availability of manifest.txt
-        manifestTifNum = 0
-        for line in manifestFile:
-            if line.find(".tif") != -1:
-                manifestTifNum = manifestTifNum+1
-        manifestFile.close()
-        # Get the total Tif number in the folder
-        realTifNum = 0
-        for pFile in next(os.walk(preProcessedPath+'\\'+flightFolder[0]))[2]:
-            if pFile.find(".tif") != -1:
-                realTifNum = realTifNum+1
-        if manifestTifNum==realTifNum:
-            isReady = True
-            print("New folder is detected: %s" % flightFolder[0])
-            print("Images in the folder are completely transferred.")
+        if manifest in next(os.walk(preProcessedPath+'\\'+flightFolder[0]))[2]:
+            # Get the total Tif number from the manifest file
+            manifestFile = open(preProcessedPath+'\\'+flightFolder[0]+'\\manifest.txt',"r") # Check the availability of manifest.txt
+            manifestTifNum = 0
+            for line in manifestFile:
+                if line.find(".tif") != -1:
+                    manifestTifNum = manifestTifNum+1
+            manifestFile.close()
+            # Get the total Tif number in the folder
+            realTifNum = 0
+            for pFile in next(os.walk(preProcessedPath+'\\'+flightFolder[0]))[2]:
+                if pFile.find(".tif") != -1:
+                    realTifNum = realTifNum+1
+            if manifestTifNum==realTifNum:
+                isReady = True
+                print("New folder is detected: %s" % flightFolder[0])
+                print("Images in the folder are completely uploaded.")
+            else:
+                isReady = False
+                print("New folder is detected: %s" % flightFolder[0])
+                print("Images in the folder are not completely transferred.")
         else:
-            isReady = False
-            print("New folder is detected: %s" % flightFolder[0])
-            print("Images in the folder are not completely transferred.")
+            print("Manifest.txt not found.")
     else:
         print("No new folder found.")
         isReady = False
@@ -92,7 +99,31 @@ def updateQueueFile():
     queueFile.truncate()
     queueFile.close()
     print("A new job - %s has been added to the queue." % newFolder[0])
-    
+    return newFolder[0]
+
+def getGCPListFromDB(flight_id):
+    # Connect to the database
+    conn = pymysql.connect(host='beocat.cis.ksu.edu', port=6306,
+                       user='xuwang', passwd = 'xuwang',
+                       db='wheatgenetics')
+    gcpListFile = open(processingPath+'\\gcpList.txt','w') 
+    try:
+        writer = csv.writer(gcpListFile, delimiter=',', lineterminator='\n')
+        writer.writerow(('Index','Longitude','Latitude','Altitude'))
+        with conn.cursor() as cursor:
+            querySQLString = "SELECT uas_run_test.experiment_id FROM uas_run_test WHERE uas_run_test.flight_filename = %s"
+            cursor.execute(querySQLString, (flight_id))
+            exp_id = cursor.fetchone()
+            querySQLString = "SELECT gcp.index,gcp.longitude,gcp.latitude,gcp.altitude FROM gcp WHERE gcp.experiment = %s"
+            cursor.execute(querySQLString, (exp_id))
+            for row in cursor:
+                writer.writerow(row)
+                print(row)
+        print("GCP list is updated.")
+    finally:
+        cursor.close()
+        conn.close()
+        
 def pipeline():
     print('Tick! The time is: %s' % datetime.now())
     isQueueReady = getQueueStatus()
@@ -104,7 +135,9 @@ def pipeline():
             isMoveReady = moveFiles()
             if isMoveReady:
                 # Write new job in the queue file
-                updateQueueFile()
+                flightFolder = updateQueueFile()
+                # Connect to database, get all supporting data
+                getGCPListFromDB(flightFolder)
                 # Start photogrammetry processing
             
             
