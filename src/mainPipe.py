@@ -23,6 +23,7 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 
 preProcessedPath = 'F:\\Xu\\uav_preprocessed'
 processingPath = 'F:\\Xu\\uav_processing'
+orthoPath = 'F:\\Xu\\uav_ortho'
 manifest = 'manifest.txt'
 jobQueue = 'queue.csv'
 gcpSource = 'gcpList.csv'
@@ -327,7 +328,16 @@ def detectGCP(srcImagePath, srcGCPFile):
                 print("3-Not sure!")
     finally:
         finalFile.close()
-        
+
+def moveOrthoFiles(srcFolder):
+    sourcePath = processingPath+'\\'+srcFolder
+    targetPath = orthoPath
+    try:
+        target = shutil.move(sourcePath,targetPath)
+        print("Moving files to %s." % target)
+    except FileNotFoundError:
+        isReady = False
+            
 def pipeline():
     print('Tick! The time is: %s' % datetime.now())
     isQueueReady = getQueueStatus()
@@ -343,13 +353,13 @@ def pipeline():
                 # Connect to database, get all supporting data
                 gcpNum = getGCPListFromDB(flightFolder)
                 # Get GCPs
-                if gcpNum > 0:
-                    detectGCP(processingPath+'\\'+flightFolder, processingPath+'\\'+gcpSource)
+                # if gcpNum > 0:
+                detectGCP(processingPath+'\\'+flightFolder, processingPath+'\\'+gcpSource)
                 # Start photogrammetry processing
-                    workingPath = processingPath+'/'+flightFolder+'/'
-                    os.system("\"C:\Program Files\Agisoft\PhotoScan Pro\photoscan.exe\" -r F:/uav_processing/photoscanPy.py -wp %s" % workingPath)
+                workingPath = processingPath+'/'+flightFolder+'/'
+                os.system("\"C:\Program Files\Agisoft\PhotoScan Pro\photoscan.exe\" -r F:/uav_processing/photoscanPy.py -wp %s" % workingPath)
                 # Once processed, move the folder to DONE, change the queue file
-                
+                    
                 #
             
             

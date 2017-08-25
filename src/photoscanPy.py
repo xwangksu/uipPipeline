@@ -1,13 +1,11 @@
 '''
 Created on Aug 24, 2017
 
-@author: xuwang
+@author: Xu Wang
 '''
-'''
-Created on Aug 24, 2017
-
-@author: xuwang
-'''
+"""
+Main work flow of photogrammetry using AgiSoft PhotoScan Python API.
+"""
 import sys
 import os
 import argparse
@@ -179,6 +177,15 @@ chunk.buildDenseCloud(quality=PhotoScan.Quality.UltraQuality, filter=PhotoScan.F
 chunk.buildModel(surface=PhotoScan.SurfaceType.HeightField, interpolation=PhotoScan.Interpolation.DisabledInterpolation, face_count=PhotoScan.FaceCount.HighFaceCount)
 
 doc.save(path=project, chunks=[doc.chunk])
+
+doc = PhotoScan.app.document
+doc.open(project)
+app = PhotoScan.Application()
+
+PhotoScan.app.cpu_enable = 8
+
+chunk = doc.chunk
+chunk.crs = PhotoScan.CoordinateSystem("EPSG::4326")
 
 chunk.buildDem(source=PhotoScan.DataSource.DenseCloudData, interpolation=PhotoScan.Interpolation.DisabledInterpolation, projection=PhotoScan.CoordinateSystem("EPSG::32614"))
 
