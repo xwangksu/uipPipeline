@@ -1,13 +1,8 @@
 '''
-Created on Aug 24, 2017
+Created on Aug 25, 2017
 
-@author: Xu Wang
+@author: xuwang
 '''
-"""
-Main work flow of photogrammetry using AgiSoft PhotoScan Python API.
-"""
-import sys
-import os
 import argparse
 import csv
 import PhotoScan
@@ -19,35 +14,18 @@ args = vars(ap.parse_args())
 workingPath = args["wpath"]
 print("Working path is: %s" % workingPath)
 
-srcImagePath = workingPath
-dem = workingPath+"dem.tif"
-orthomosaic = workingPath+"ortho.tif"
 project = workingPath+"project.psx"
-
-files = os.listdir(srcImagePath)
-file_list=[]
-for file in files:
-    if file.endswith(".tif"):
-        filePath = srcImagePath + file
-        file_list.append(filePath)
 
 app = PhotoScan.Application()
 doc = PhotoScan.app.document
+doc.open(project)
 
 PhotoScan.app.gpu_mask = 14
 PhotoScan.app.cpu_enable = 8
 
-chunk = PhotoScan.app.document.addChunk()
+chunk = doc.chunk
 chunk.crs = PhotoScan.CoordinateSystem("EPSG::4326")
-# Import photos
-chunk.addPhotos(file_list, PhotoScan.MultiplaneLayout)
-chunk.matchPhotos(accuracy=PhotoScan.HighAccuracy, 
-                 preselection=PhotoScan.ReferencePreselection,
-                 keypoint_limit = 15000,tiepoint_limit = 10000)
-# Align photos                 
-chunk.alignCameras(adaptive_fitting=True)
-# Save project
-doc.save(path=project, chunks=[doc.chunk])
+
 # Assign GCPs
 markerFile = "markerList"
 markerList = open(workingPath+markerFile+".csv", "rt")
@@ -166,33 +144,4 @@ while not eof:
         break # EOF
 markerList.close()
 # Save project
-doc.save(path=project, chunks=[doc.chunk])
-
-chunk.updateTransform()
-
-chunk.optimizeCameras(fit_f=True, fit_cxcy=True, fit_b1=True, fit_b2=True, fit_k1k2k3=True, fit_p1p2=True)
-
-chunk.buildDenseCloud(quality=PhotoScan.Quality.UltraQuality, filter=PhotoScan.FilterMode.AggressiveFiltering)
-
-chunk.buildModel(surface=PhotoScan.SurfaceType.HeightField, interpolation=PhotoScan.Interpolation.DisabledInterpolation, face_count=PhotoScan.FaceCount.HighFaceCount)
-
-doc.save(path=project, chunks=[doc.chunk])
-
-doc = PhotoScan.app.document
-doc.open(project)
-app = PhotoScan.Application()
-
-PhotoScan.app.cpu_enable = 8
-
-chunk = doc.chunk
-chunk.crs = PhotoScan.CoordinateSystem("EPSG::4326")
-
-chunk.buildDem(source=PhotoScan.DataSource.DenseCloudData, interpolation=PhotoScan.Interpolation.DisabledInterpolation, projection=PhotoScan.CoordinateSystem("EPSG::32614"))
-
-chunk.buildOrthomosaic(surface=PhotoScan.DataSource.ElevationData, blending=PhotoScan.BlendingMode.MosaicBlending, color_correction=False, projection=PhotoScan.CoordinateSystem("EPSG::32614"))
-
-chunk.exportDem(dem, image_format=PhotoScan.ImageFormatTIFF, projection=PhotoScan.CoordinateSystem("EPSG::32614"), nodata=-9999, write_kml=False, write_world=False, tiff_big=False)
-
-chunk.exportOrthomosaic(orthomosaic, image_format=PhotoScan.ImageFormatTIFF, raster_transform=PhotoScan.RasterTransformType.RasterTransformNone, projection=PhotoScan.CoordinateSystem("EPSG::32614"), write_kml=False, write_world=False, tiff_compression=PhotoScan.TiffCompressionNone, tiff_big=False)
-
 doc.save(path=project, chunks=[doc.chunk])

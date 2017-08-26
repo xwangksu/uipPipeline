@@ -30,6 +30,8 @@ gcpSource = 'gcpList.csv'
 markerList = 'markerList.csv'
 gcpNum = 0
 targetDatabase = 'wheatgenetics'
+ortho = 'ortho.tif'
+dem = 'dem.tif'
 
 def getQueueStatus():
 # Read the processing queue file
@@ -104,7 +106,7 @@ def moveFiles():
         isReady = False
     return isReady
 
-def updateQueueFile():
+def addJobToQueue():
     newFolder = next(os.walk(processingPath))[1]
     queueFile = open(processingPath+'\\'+jobQueue,"w")
     queueFile.write(newFolder[0]+",processing")
@@ -330,14 +332,41 @@ def detectGCP(srcImagePath, srcGCPFile):
         finalFile.close()
 
 def moveOrthoFiles(srcFolder):
+    isReady = False
     sourcePath = processingPath+'\\'+srcFolder
     targetPath = orthoPath
     try:
         target = shutil.move(sourcePath,targetPath)
-        print("Moving files to %s." % target)
+        print("Moving results to %s." % target)
+        isReady = True
     except FileNotFoundError:
         isReady = False
-            
+    return isReady
+
+def updateQueue():
+# Read the processing queue file
+    queueFile = open(processingPath+'\\'+jobQueue,"r")
+    lineNum = 0;
+    isReady = False
+    for line in queueFile:
+        lineNum = lineNum+1
+    queueFile.close()
+    if lineNum==1:
+        words=re.split(",|\n", line)
+        if words[1]=="processing":
+            queueFile = open(processingPath+'\\'+jobQueue,"w")
+            queueFile.write(words[0]+",done")
+            queueFile.close()
+            print("The job in the queue is DONE.")
+            isReady = True
+        else:
+            print("The job in the queue is marked as DONE.")
+            isReady = True
+    else: # Only header line meaning no job is being processed
+        print("There is no job found in the queue. Ready to add new jobs in the queue.")
+        isReady = False
+    return isReady
+        
 def pipeline():
     print('Tick! The time is: %s' % datetime.now())
     isQueueReady = getQueueStatus()
@@ -349,23 +378,33 @@ def pipeline():
             isMoveReady = moveFiles()
             if isMoveReady:
                 # Write new job in the queue file
-                flightFolder = updateQueueFile()
+                flightFolder = addJobToQueue()
                 # Connect to database, get all supporting data
-                gcpNum = getGCPListFromDB(flightFolder)
                 # Get GCPs
-                # if gcpNum > 0:
-                detectGCP(processingPath+'\\'+flightFolder, processingPath+'\\'+gcpSource)
+                gcpNum = getGCPListFromDB(flightFolder)
                 # Start photogrammetry processing
                 workingPath = processingPath+'/'+flightFolder+'/'
-                os.system("\"C:\Program Files\Agisoft\PhotoScan Pro\photoscan.exe\" -r F:/uav_processing/photoscanPy.py -wp %s" % workingPath)
+                # 1. Align images
+                os.system("\"C:\Program Files\Agisoft\PhotoScan Pro\photoscan.exe\" -r F:/uav_processing/phAlignImages.py -wp %s" % workingPath)
+                # 2. (Optional) GCP detection
+                if gcpNum > 0:
+                    detectGCP(processingPath+'\\'+flightFolder, processingPath+'\\'+gcpSource)
+                    os.system("\"C:\Program Files\Agisoft\PhotoScan Pro\photoscan.exe\" -r F:/uav_processing/phAssignGCP.py -wp %s" % workingPath)
+                # 3. Generate ortho-photos
+                os.system("\"C:\Program Files\Agisoft\PhotoScan Pro\photoscan.exe\" -r F:/uav_processing/phGenerateOrtho.py -wp %s" % workingPath)
                 # Once processed, move the folder to DONE, change the queue file
-                    
-                #
-            
+                # Check if ortho.tif or dem.tif exist
+                if ortho in os.listdir(processingPath+'\\'+flightFolder) or dem in os.listdir(processingPath+'\\'+flightFolder):
+                    # Move results from processing folder to processed/ortho folder
+                    isDone = moveOrthoFiles(flightFolder)
+                    # change the queue file
+                    if isDone:
+                        updateQueue()
+
             
 if __name__ == '__main__':
     scheduler = BlockingScheduler()
-    scheduler.add_job(pipeline, 'interval', seconds=300)
+    scheduler.add_job(pipeline, 'interval', seconds=3600)
     print('Press Ctrl+{0} to exit'.format('Break' if os.name == 'nt' else 'C'))
 
     try:
