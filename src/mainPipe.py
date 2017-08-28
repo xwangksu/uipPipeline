@@ -236,8 +236,8 @@ def detectGCP(srcImagePath, srcGCPFile):
     # Set the Gaussian filter size
     gaussian_size = 3
     # Set the detected contour area size
-    contour_min_size = 40
-    contour_max_size = 70
+    contour_min_size = 50
+    contour_max_size = 130
     # Get system time to mark the output marker file
     # t_index = str(datetime.now().strftime('%Y%m%d_%H%M%S'))
     # Set final output file name
@@ -393,13 +393,13 @@ def pipeline():
                 # 3. Generate ortho-photos
                 os.system("\"C:\Program Files\Agisoft\PhotoScan Pro\photoscan.exe\" -r F:/uav_processing/phGenerateOrtho.py -wp %s" % workingPath)
                 # Once processed, move the folder to DONE, change the queue file
-                # Check if ortho.tif or dem.tif exist
-                if ortho in os.listdir(processingPath+'\\'+flightFolder) or dem in os.listdir(processingPath+'\\'+flightFolder):
-                    # Move results from processing folder to processed/ortho folder
-                    isDone = moveOrthoFiles(flightFolder)
-                    # change the queue file
-                    if isDone:
-                        updateQueue()
+#                 # Check if ortho.tif or dem.tif exist
+#                 if ortho in os.listdir(processingPath+'\\'+flightFolder) or dem in os.listdir(processingPath+'\\'+flightFolder):
+                # Move results from processing folder to processed/ortho folder
+                isDone = moveOrthoFiles(flightFolder)
+                # change the queue file
+                if isDone:
+                    updateQueue()
 
             
 if __name__ == '__main__':
