@@ -97,7 +97,7 @@ def matachGCP(theDist, pointCamera, gcpFile):
 # End of function
 
 # Set working path
-workingPath = "F:/Xu/17ASH_Macia_0724/"
+workingPath = "F:/Xu/17ASH_Macia_0831/"
 # Set source images path
 srcImagePath = workingPath+"blue/"
 imageFiles = os.listdir(srcImagePath)
@@ -110,12 +110,12 @@ img_width = 1280
 img_height = 960
 sh_ratio = 0.5
 # Set the GCP area filter value
-th_GCP = 220
+th_GCP = 210
 # Set the Gaussian filter size
 gaussian_size = 3
 # Set the detected contour area size
-contour_min_size = 90
-contour_max_size = 160
+contour_min_size = 75
+contour_max_size = 140
 # Get system time to mark the output marker file
 t_index = str(datetime.now().strftime('%Y%m%d_%H%M%S'))
 # Set final output file name
